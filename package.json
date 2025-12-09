@@ -1,0 +1,20 @@
+{
+  "name": "eventemitter.ts",
+  "version": "1.0.0",
+  "description": "Typescript native EventEmitter",
+  "exports": {
+    "import": "./dist/index.js",
+    "require": "./dist/index.js",
+    "types": "./dist/index.d.ts"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "prepare": "tsc",
+    "pretest": "tsc",
+    "test": "node ./dist/test.js"
+  },
+  "keywords": [],
+  "author": "Christian Braghette",
+  "license": "MIT",
+  "type": "commonjs"
+}
