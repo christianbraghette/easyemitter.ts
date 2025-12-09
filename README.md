@@ -1,10 +1,3 @@
-Certo! Ti scrivo un README completo e professionale per il tuo `EventEmitter` TypeScript, con spiegazione, installazione, esempi e note sulle API.
-
----
-
-# README.md
-
-````markdown
 # EventEmitter TypeScript
 
 A lightweight, type-safe, and async-ready EventEmitter for TypeScript.  
@@ -29,23 +22,23 @@ Supports standard event subscriptions, one-time listeners, async `wait()` for ev
 If you're using npm:
 
 ```bash
-npm install eventemitter.ts
+npm install easyemitter.ts
 ````
 
 Or with yarn:
 
 ```bash
-yarn add eventemitter.ts
+yarn add easyemitter.ts
 ```
 
-> Replace `eventemitter.ts` with the actual package name if you publish it.
+> Replace `easyemitter.ts` with the actual package name if you publish it.
 
 ---
 
 ## Usage
 
 ```ts
-import { EventEmitter } from "eventemitter.ts";
+import { EventEmitter } from "easyemitter.ts";
 
 // Define event types and payloads
 type Events = "message" | "ready";
