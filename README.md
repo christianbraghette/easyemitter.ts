@@ -31,8 +31,6 @@ Or with yarn:
 yarn add easyemitter.ts
 ```
 
-> Replace `easyemitter.ts` with the actual package name if you publish it.
-
 ---
 
 ## Usage

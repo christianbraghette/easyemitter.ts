@@ -1,6 +1,6 @@
 {
   "name": "easyemitter.ts",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Typescript native EventEmitter",
   "exports": {
     "import": "./dist/index.js",
