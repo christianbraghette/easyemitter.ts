@@ -10,6 +10,8 @@ e.on('open', ({ data, emitter }) => {
     console.log("Open", data);
 
     emitter.on('message', fun);
+
+    e.emit('message', "Dio");
 });
 
 setTimeout(async () => {

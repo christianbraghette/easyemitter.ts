@@ -73,8 +73,8 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type to listen for.
      * @param callFn The callback invoked once when the event is emitted.
      */
-    public once(type: T, callFn: EventCall<T, E>): void {
-        const wrapper: EventCall<T, E> = (event) => {
+    public once<K extends T>(type: K, callFn: EventCall<K, E, T>): void {
+        const wrapper: EventCall<K, E, T> = (event) => {
             callFn(event);
             this.off(type, wrapper);
         };
@@ -87,7 +87,7 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type whose listener should be removed.
      * @param callFn The callback function to unregister.
      */
-    public off(type: T, callFn: EventCall<T, E>): void {
+    public off<K extends T>(type: K, callFn: EventCall<K, E, T>): void {
         this.#calls.get(type)?.delete(callFn);
     }
 
