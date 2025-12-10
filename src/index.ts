@@ -14,16 +14,19 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/** */
+type EventType = string | number;
+
 /**
  * Represents an event dispatched by an {@link EventEmitter}.
  *
  * @template T The type used to identify events.
  * @template E The payload associated with the event.
  */
-export type EventData<T, E> = {
+export type EventData<T extends O, O extends EventType, E> = {
     type: T;
     data?: E;
-    emitter: EventEmitter<T, E>;
+    emitter: EventEmitter<O, E>;
 };
 
 /**
@@ -33,7 +36,7 @@ export type EventData<T, E> = {
  * @template E The event payload type.
  * @param event The event metadata and optional payload.
  */
-export type EventCall<T, E> = (event: EventData<T, E>) => void;
+export type EventCall<T extends O, E, O extends EventType = any> = (event: EventData<T, O, E>) => void;
 
 
 /**
@@ -46,9 +49,9 @@ export type EventCall<T, E> = (event: EventData<T, E>) => void;
  * @template T The event identifier type.
  * @template E The event payload type.
  */
-export class EventEmitter<T, E> {
+export class EventEmitter<T extends EventType, E> {
     #waiters = new Set<(reason?: any) => void>()
-    #calls = new Map<T, Set<EventCall<T, E>>>();
+    #calls = new Map<T, Set<EventCall<any, E, T>>>();
     #timeouts = new Set<number>();
 
     /**
@@ -57,7 +60,7 @@ export class EventEmitter<T, E> {
      * @param type The event type to listen for.
      * @param callFn The callback invoked when the event is emitted.
      */
-    public on(type: T, callFn: EventCall<T, E>): void {
+    public on<K extends T>(type: K, callFn: EventCall<K, E, T>): void {
         if (!this.#calls.has(type))
             this.#calls.set(type, new Set());
         this.#calls.get(type)?.add(callFn);
