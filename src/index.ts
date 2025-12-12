@@ -21,22 +21,22 @@ type EventType = string | number;
  * Represents an event dispatched by an {@link EventEmitter}.
  *
  * @template T The type used to identify events.
- * @template E The payload associated with the event.
+ * @template Emitter The payload associated with the event.
  */
-export type EventData<T extends O, O extends EventType, E> = {
+/*export type EventData<T extends O, O extends EventType, E> = {
     type: T;
     data?: E;
     emitter: EventEmitter<O, E>;
-};
+};*/
 
 /**
  * The callback function invoked when an event of type `T` is emitted.
  *
- * @template T The event type.
- * @template E The event payload type.
+ * @template Data The event data type.
+ * @template Emitter The event payload type.
  * @param event The event metadata and optional payload.
  */
-export type EventCall<T extends O, E, O extends EventType = any> = (event: EventData<T, O, E>) => void;
+export type EventCallback<Data, Emitter> = (data: Data, emitter: Emitter) => void;
 
 
 /**
@@ -51,19 +51,19 @@ export type EventCall<T extends O, E, O extends EventType = any> = (event: Event
  */
 export class EventEmitter<T extends EventType, E> {
     #waiters = new Set<(reason?: any) => void>()
-    #calls = new Map<T, Set<EventCall<any, E, T>>>();
+    #calls = new Map<T, Set<EventCallback<any, this>>>();
     #timeouts = new Set<number>();
 
     /**
      * Registers a listener for a given event type.
      *
      * @param type The event type to listen for.
-     * @param callFn The callback invoked when the event is emitted.
+     * @param callbackFn The callback invoked when the event is emitted.
      */
-    public on<K extends T>(type: K, callFn: EventCall<K, E, T>): void {
+    public on<K extends T, D extends E>(type: K, callbackFn: EventCallback<D, this>): void {
         if (!this.#calls.has(type))
             this.#calls.set(type, new Set());
-        this.#calls.get(type)?.add(callFn);
+        this.#calls.get(type)?.add(callbackFn);
     }
 
     /**
@@ -71,11 +71,11 @@ export class EventEmitter<T extends EventType, E> {
      * The callback will be removed automatically after being invoked once.
      *
      * @param type The event type to listen for.
-     * @param callFn The callback invoked once when the event is emitted.
+     * @param callbackFn The callback invoked once when the event is emitted.
      */
-    public once<K extends T>(type: K, callFn: EventCall<K, E, T>): void {
-        const wrapper: EventCall<K, E, T> = (event) => {
-            callFn(event);
+    public once<K extends T, D extends E>(type: K, callbackFn: EventCallback<D, this>): void {
+        const wrapper: EventCallback<D, this> = (event) => {
+            callbackFn(event, this);
             this.off(type, wrapper);
         };
         this.on(type, wrapper);
@@ -85,10 +85,10 @@ export class EventEmitter<T extends EventType, E> {
      * Removes a previously registered listener for the given event type.
      *
      * @param type The event type whose listener should be removed.
-     * @param callFn The callback function to unregister.
+     * @param callbackFn The callback function to unregister.
      */
-    public off<K extends T>(type: K, callFn: EventCall<K, E, T>): void {
-        this.#calls.get(type)?.delete(callFn);
+    public off<K extends T, D extends E>(type: K, callbackFn: EventCallback<D, this>): void {
+        this.#calls.get(type)?.delete(callbackFn);
     }
 
     /**
@@ -97,9 +97,9 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type to emit.
      * @param data Optional payload associated with the event.
      */
-    public emit(type: T, data?: E): void {
+    public emit<D extends E>(type: T, data?: D): void {
         for (const callFn of this.#calls.get(type) ?? [])
-            callFn({ type, data, emitter: this });
+            callFn(data, this);
     }
 
     /**
@@ -110,7 +110,7 @@ export class EventEmitter<T extends EventType, E> {
      * @param timeout Optional timeout (in ms). If exceeded, the promise rejects.
      * @returns A promise that resolves with the event's payload.
      */
-    public wait(type: T, timeout?: number): Promise<E | undefined> {
+    public wait<K extends T, D extends E>(type: K, timeout?: number): Promise<D | undefined> {
         return new Promise((resolve, reject) => {
             this.#waiters.add(reject);
 
@@ -124,10 +124,10 @@ export class EventEmitter<T extends EventType, E> {
                 this.#timeouts.add(t);
             }
 
-            this.once(type, (event) => {
+            this.once<K, D>(type, (data) => {
                 clearTimeout(t);
                 this.#waiters.delete(reject);
-                resolve(event.data);
+                resolve(data);
             });
         })
     }

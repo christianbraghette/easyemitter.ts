@@ -1,15 +1,15 @@
-import EventEmitter, { EventCall } from ".";
+import EventEmitter, { EventCallback } from ".";
 
-const e = new EventEmitter<'message' | 'open', any>();
+const e = new EventEmitter<'message' | 'open', string>();
 
-let fun: EventCall<'message', any> = ({ data }) => {
+let fun: EventCallback<string, typeof e> = (data) => {
     console.log("Message:", data);
 }
 
-e.on('open', ({ data, emitter }) => {
+e.on('open', (data) => {
     console.log("Open", data);
 
-    emitter.on('message', fun);
+    e.on('message', fun);
 
     e.emit('message', "Dio");
 });
@@ -20,7 +20,7 @@ setTimeout(async () => {
 }, 0);
 
 setTimeout(async () => {
-    fun = ({ data }) => {
+    fun = (data) => {
         console.log("Message2:", data);
     }
 }, 500)
