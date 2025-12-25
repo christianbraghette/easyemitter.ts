@@ -18,18 +18,6 @@
 type EventType = string | number;
 
 /**
- * Represents an event dispatched by an {@link EventEmitter}.
- *
- * @template T The type used to identify events.
- * @template Emitter The payload associated with the event.
- */
-/*export type EventData<T extends O, O extends EventType, E> = {
-    type: T;
-    data?: E;
-    emitter: EventEmitter<O, E>;
-};*/
-
-/**
  * The callback function invoked when an event of type `T` is emitted.
  *
  * @template Data The event data type.
@@ -37,7 +25,6 @@ type EventType = string | number;
  * @param event The event metadata and optional payload.
  */
 export type EventCallback<Data, Emitter> = (data: Data, emitter: Emitter) => void;
-
 
 /**
  * A lightweight and type-safe event emitter.
@@ -49,9 +36,9 @@ export type EventCallback<Data, Emitter> = (data: Data, emitter: Emitter) => voi
  * @template T The event identifier type.
  * @template E The event payload type.
  */
-export class EventEmitter<T extends EventType, E> {
+export class EventEmitter<EventMap extends Record<EventType, any>> {
     #waiters = new Set<(reason?: any) => void>()
-    #calls = new Map<T, Set<EventCallback<any, this>>>();
+    #calls = new Map<keyof EventMap, Set<EventCallback<any, this>>>();
     #timeouts = new Set<number>();
 
     /**
@@ -60,7 +47,7 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type to listen for.
      * @param callbackFn The callback invoked when the event is emitted.
      */
-    public on<K extends T, D extends E>(type: K, callbackFn: EventCallback<D, this>): void {
+    public on<Event extends keyof EventMap>(type: Event, callbackFn: EventCallback<EventMap[Event], this>): void {
         if (!this.#calls.has(type))
             this.#calls.set(type, new Set());
         this.#calls.get(type)?.add(callbackFn);
@@ -73,8 +60,8 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type to listen for.
      * @param callbackFn The callback invoked once when the event is emitted.
      */
-    public once<K extends T, D extends E>(type: K, callbackFn: EventCallback<D, this>): void {
-        const wrapper: EventCallback<D, this> = (event) => {
+    public once<Event extends keyof EventMap>(type: Event, callbackFn: EventCallback<EventMap[Event], this>): void {
+        const wrapper: EventCallback<EventMap[Event], this> = (event) => {
             callbackFn(event, this);
             this.off(type, wrapper);
         };
@@ -87,7 +74,7 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type whose listener should be removed.
      * @param callbackFn The callback function to unregister.
      */
-    public off<K extends T, D extends E>(type: K, callbackFn: EventCallback<D, this>): void {
+    public off<Event extends keyof EventMap>(type: Event, callbackFn: EventCallback<EventMap[Event], this>): void {
         this.#calls.get(type)?.delete(callbackFn);
     }
 
@@ -97,7 +84,7 @@ export class EventEmitter<T extends EventType, E> {
      * @param type The event type to emit.
      * @param data Optional payload associated with the event.
      */
-    public emit<D extends E>(type: T, data?: D): void {
+    public emit<Event extends keyof EventMap>(type: Event, data?: EventMap[Event]): void {
         for (const callFn of this.#calls.get(type) ?? [])
             callFn(data, this);
     }
@@ -110,7 +97,7 @@ export class EventEmitter<T extends EventType, E> {
      * @param timeout Optional timeout (in ms). If exceeded, the promise rejects.
      * @returns A promise that resolves with the event's payload.
      */
-    public wait<K extends T, D extends E>(type: K, timeout?: number): Promise<D | undefined> {
+    public wait<Event extends keyof EventMap>(type: Event, timeout?: number): Promise<EventMap[Event] | undefined> {
         return new Promise((resolve, reject) => {
             this.#waiters.add(reject);
 
@@ -124,7 +111,7 @@ export class EventEmitter<T extends EventType, E> {
                 this.#timeouts.add(t);
             }
 
-            this.once<K, D>(type, (data) => {
+            this.once<Event>(type, (data) => {
                 clearTimeout(t);
                 this.#waiters.delete(reject);
                 resolve(data);

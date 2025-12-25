@@ -1,22 +1,25 @@
 import EventEmitter, { EventCallback } from ".";
 
-const e = new EventEmitter<'message' | 'open', string>();
+const e = new EventEmitter<{ 
+    message: string,
+    data: number
+}>();
 
 let fun: EventCallback<string, typeof e> = (data) => {
     console.log("Message:", data);
 }
 
-e.on('open', (data) => {
+e.on('data', (data, emitter) => {
     console.log("Open", data);
 
-    e.on('message', fun);
+    emitter.on('message', fun);
 
-    e.emit('message', "Dio");
+    emitter.emit('message', "Dio");
 });
 
 setTimeout(async () => {
-    const test = await e.wait('open');
-    e.emit('message', test);
+    const test = await e.wait('data');
+    e.emit('message', String(test));
 }, 0);
 
 setTimeout(async () => {
@@ -25,4 +28,4 @@ setTimeout(async () => {
     }
 }, 500)
 
-setTimeout(() => e.emit('open', "I'm a good test"), 1000);
+setTimeout(() => e.emit('data', 1), 1000);
