@@ -38,15 +38,12 @@ yarn add easyemitter.ts
 ```ts
 import { EventEmitter } from "easyemitter.ts";
 
-// Define event types and payloads
-type Events = "message" | "ready";
-
-type Payloads = {
+type Events = {
   message: { text: string; from: string };
   ready: void;
 };
 
-const emitter = new EventEmitter<Events, Payloads>();
+const emitter = new EventEmitter<Events>();
 
 // Standard listener
 emitter.on("message", (event) => {
