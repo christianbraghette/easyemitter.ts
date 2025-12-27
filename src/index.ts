@@ -14,54 +14,76 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+
 /** */
 type EventType = string | number;
 
-/**
- * The callback function invoked when an event of type `T` is emitted.
- *
- * @template Data The event data type.
- * @template Emitter The event payload type.
- * @param event The event metadata and optional payload.
- */
-export type EventCallback<Data, Emitter> = (data: Data, emitter: Emitter) => void;
+type EmitArgs<T> = T extends void | undefined ? [] : [data: T];
 
 /**
- * A lightweight and type-safe event emitter.
+ * The callback invoked when an event of type `Event` is emitted.
  *
- * Supports standard subscription (`on`), one-time listeners (`once`),
- * event emission (`emit`), async waiting for events (`wait`), and
- * full cleanup (`destroy`).
+ * The callback receives two arguments:
+ * - `data`: the payload for the emitted event (type depends on the event key)
+ * - `emitter`: the `EventEmitter` instance that emitted the event
  *
- * @template T The event identifier type.
- * @template E The event payload type.
+ * @template Event The event key type (keyof `EventsMap`).
+ * @template EventsMap The mapping of event keys to payload types.
+ * @param data The event payload for the invoked callback.
+ * @param emitter The `EventEmitter` instance emitting the event.
  */
-export class EventEmitter<EventMap extends Record<EventType, any>> {
+export type EventCallback<Event extends keyof EventsMap, EventsMap extends Record<EventType, any>> = <EventData extends EventsMap[Event]>(data: EventData, emitter: EventEmitter<EventsMap>) => void;
+
+/**
+ * Lightweight EventEmitter implementation for TypeScript.
+ *
+ * This module exposes a small, type-safe event emitter that supports
+ * standard subscriptions (`on`), one-time listeners (`once`), awaiting
+ * an event (`wait`), emitting (`emit`), and full cleanup (`destroy`).
+ *
+ * Features:
+ * - `on` to register persistent listeners
+ * - `once` to register one-time listeners that auto-remove after firing
+ * - `emit` to invoke all listeners for a given event key
+ * - `wait` to asynchronously await the next occurrence of an event (with optional timeout)
+ * - `destroy` to reject pending `wait()` promises, clear timers, and remove listeners
+ *
+ * Notes on types and behavior:
+ * - `EventsMap` maps event keys to their payload types. For events with no payload use `void` or `undefined`.
+ * - `emit` expects a payload matching the event's type.
+ * - `wait` resolves with the emitted payload or rejects with the string "Event timed out" (on timeout) or "EventEmitter destroyed" (when destroyed).
+ *
+ * @template EventsMap The mapping of event keys to payload types.
+ */
+export class EventEmitter<EventsMap extends Record<EventType, any>> {
+    // Holds reject functions for pending `wait()` promises so they can be rejected on destroy
     #waiters = new Set<(reason?: any) => void>()
-    #calls = new Map<keyof EventMap, Set<EventCallback<any, this>>>();
+    // Map from event key -> Set of listener callbacks
+    #calls = new Map<keyof EventsMap, Set<EventCallback<keyof EventsMap, EventsMap>>>();
+    // Active timer IDs created by `wait()` so they can be cleared on destroy
     #timeouts = new Set<number>();
 
     /**
-     * Registers a listener for a given event type.
-     *
-     * @param type The event type to listen for.
-     * @param callbackFn The callback invoked when the event is emitted.
+    * Registers a listener for a given event type.
+    *
+    * @param type The event key to listen for.
+    * @param callbackFn The callback invoked with `(data, emitter)` when the event is emitted.
      */
-    public on<Event extends keyof EventMap>(type: Event, callbackFn: EventCallback<EventMap[Event], this>): void {
+    public on<Event extends keyof EventsMap>(type: Event, callbackFn: EventCallback<Event, EventsMap>): void {
         if (!this.#calls.has(type))
             this.#calls.set(type, new Set());
         this.#calls.get(type)?.add(callbackFn);
     }
 
     /**
-     * Registers a one-time listener for a given event type.
-     * The callback will be removed automatically after being invoked once.
-     *
-     * @param type The event type to listen for.
-     * @param callbackFn The callback invoked once when the event is emitted.
+    * Registers a one-time listener for a given event key.
+    * The wrapper removes itself after the first invocation.
+    *
+    * @param type The event key to listen for once.
+    * @param callbackFn The callback invoked once with `(data, emitter)`.
      */
-    public once<Event extends keyof EventMap>(type: Event, callbackFn: EventCallback<EventMap[Event], this>): void {
-        const wrapper: EventCallback<EventMap[Event], this> = (event) => {
+    public once<Event extends keyof EventsMap>(type: Event, callbackFn: EventCallback<Event, EventsMap>): void {
+        const wrapper: EventCallback<Event, EventsMap> = (event) => {
             callbackFn(event, this);
             this.off(type, wrapper);
         };
@@ -69,35 +91,41 @@ export class EventEmitter<EventMap extends Record<EventType, any>> {
     }
 
     /**
-     * Removes a previously registered listener for the given event type.
+     * Removes a previously registered listener for the given event key.
+     * If the callback is not present this is a no-op.
      *
-     * @param type The event type whose listener should be removed.
+     * @param type The event key whose listener should be removed.
      * @param callbackFn The callback function to unregister.
      */
-    public off<Event extends keyof EventMap>(type: Event, callbackFn: EventCallback<EventMap[Event], this>): void {
+    public off<Event extends keyof EventsMap>(type: Event, callbackFn: EventCallback<Event, EventsMap>): void {
         this.#calls.get(type)?.delete(callbackFn);
     }
 
     /**
-     * Emits an event, invoking all listeners registered for that event type.
+     * Emits an event, invoking all listeners registered for that event key.
      *
-     * @param type The event type to emit.
-     * @param data Optional payload associated with the event.
+     * The payload `data` must match the declared type in `EventsMap` for `type`.
+     *
+     * @param type The event key to emit.
+     * @param data The payload associated with the event.
      */
-    public emit<Event extends keyof EventMap>(type: Event, data?: EventMap[Event]): void {
+    public emit<Event extends keyof EventsMap>(type: Event, ...args: EmitArgs<EventsMap[Event]>): void {
         for (const callFn of this.#calls.get(type) ?? [])
-            callFn(data, this);
+            callFn(args[0], this);
     }
 
     /**
-     * Waits asynchronously for an event of the specified type.
-     * Optionally rejects the promise if a timeout is provided and expires.
+     * Waits asynchronously for the next occurrence of the specified event key.
      *
-     * @param type The event type to wait for.
-     * @param timeout Optional timeout (in ms). If exceeded, the promise rejects.
-     * @returns A promise that resolves with the event's payload.
+     * If `timeout` (ms) is provided and elapses before the event, the returned promise rejects
+     * with the string "Event timed out". If `destroy()` is called while waiting, the promise
+     * rejects with the string "EventEmitter destroyed".
+     *
+     * @param type The event key to wait for.
+     * @param timeout Optional timeout in milliseconds; when exceeded the promise rejects.
+     * @returns A promise that resolves with the emitted payload (type from `EventsMap`) or rejects with a string reason.
      */
-    public wait<Event extends keyof EventMap>(type: Event, timeout?: number): Promise<EventMap[Event] | undefined> {
+    public wait<Event extends keyof EventsMap>(type: Event, timeout?: number): Promise<EventsMap[Event] | undefined> {
         return new Promise((resolve, reject) => {
             this.#waiters.add(reject);
 
@@ -121,9 +149,9 @@ export class EventEmitter<EventMap extends Record<EventType, any>> {
 
     /**
      * Cleans up all active listeners, pending waits, and timeouts.
-     * All pending `wait()` promises are rejected with `"EventEmitter destroyed"`.
      *
-     * This is useful when disposing of an emitter to avoid memory leaks.
+     * All pending `wait()` promises are rejected with the string "EventEmitter destroyed".
+     * All timers created by `wait()` are cleared, and all registered listeners are removed.
      */
     public destroy() {
         for (const reject of this.#waiters)

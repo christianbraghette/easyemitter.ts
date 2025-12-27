@@ -1,11 +1,14 @@
 import EventEmitter, { EventCallback } from ".";
 
-const e = new EventEmitter<{ 
+type EventsMap = {
     message: string,
-    data: number
-}>();
+    data: number,
+    close: void
+}
 
-let fun: EventCallback<string, typeof e> = (data) => {
+const e = new EventEmitter<EventsMap>();
+
+let fun: EventCallback<'message', EventsMap> = (data) => {
     console.log("Message:", data);
 }
 
@@ -28,4 +31,7 @@ setTimeout(async () => {
     }
 }, 500)
 
-setTimeout(() => e.emit('data', 1), 1000);
+setTimeout(() => {
+    e.emit('data', 1)
+    e.emit('close')
+}, 1000);

@@ -1,6 +1,7 @@
 # EventEmitter TypeScript
 
-A lightweight, type-safe, and async-ready EventEmitter for TypeScript.  
+A lightweight, type-safe, and async-ready EventEmitter for TypeScript.
+
 Supports standard event subscriptions, one-time listeners, async `wait()` for events, and full cleanup with `destroy()`.
 
 ---
@@ -10,7 +11,7 @@ Supports standard event subscriptions, one-time listeners, async `wait()` for ev
 - Type-safe event identifiers and payloads
 - Standard listeners with `on()`
 - One-time listeners with `once()`
-- Emit events with optional payloads using `emit()`
+- Emit events with payloads using `emit()`
 - Async waiting for an event with optional timeout using `wait()`
 - Proper cleanup of listeners and pending waits via `destroy()`
 - Prevents memory leaks by tracking active timers and pending promises
@@ -23,7 +24,7 @@ If you're using npm:
 
 ```bash
 npm install easyemitter.ts
-````
+```
 
 Or with yarn:
 
@@ -45,13 +46,13 @@ type Events = {
 
 const emitter = new EventEmitter<Events>();
 
-// Standard listener
-emitter.on("message", (event) => {
-  console.log("Message received:", event.data);
+// Standard listener — callback receives (data, emitter)
+emitter.on("message", (data, em) => {
+  console.log("Message received:", data);
 });
 
 // One-time listener
-emitter.once("ready", (event) => {
+emitter.once("ready", (_data, em) => {
   console.log("Emitter is ready!");
 });
 
@@ -62,16 +63,18 @@ emitter.emit("ready");
 // Wait asynchronously for an event
 async function waitForMessage() {
   try {
+    // `wait` resolves with the event payload or rejects with the string
+    // "Event timed out" (on timeout) or "EventEmitter destroyed" (if emitter destroyed)
     const data = await emitter.wait("message", 5000); // 5 seconds timeout
     console.log("Received message via wait:", data);
   } catch (err) {
-    console.error("Wait timed out:", err);
+    console.error("Wait error:", err);
   }
 }
 
 waitForMessage();
 
-// Destroy the emitter
+// Destroy the emitter — rejects pending `wait()` promises
 emitter.destroy();
 ```
 
@@ -81,10 +84,10 @@ emitter.destroy();
 
 ### `on(type, callFn)`
 
-Registers a listener for a given event type.
+Registers a listener for a given event key.
 
-* `type` — the event type to listen for
-* `callFn` — the callback invoked when the event is emitted
+* `type` — the event key to listen for
+* `callFn` — the callback invoked when the event is emitted; receives `(data, emitter)`
 
 ### `once(type, callFn)`
 
@@ -92,23 +95,23 @@ Registers a one-time listener that will be removed after being invoked once.
 
 ### `off(type, callFn)`
 
-Removes a previously registered listener for the specified event type.
+Removes a previously registered listener for the specified event key.
 
-### `emit(type, data?)`
+### `emit(type, data)`
 
-Emits an event to all listeners registered for the given type.
+Emits an event to all listeners registered for the given key.
 
-* `data` is optional payload
+* `data` is required and must match the type in `EventsMap` for the event key.
 
 ### `wait(type, timeout?)`
 
-Returns a promise that resolves with the payload of the first event of the given type.
+Returns a promise that resolves with the payload of the first event of the given key.
 
-* `timeout` is optional and rejects the promise if exceeded.
+* `timeout` is optional and rejects the promise if exceeded. The promise rejects with the string "Event timed out" on timeout, or "EventEmitter destroyed" if `destroy()` is called while waiting.
 
 ### `destroy()`
 
-Cleans up all listeners, pending waits, and timeouts. All pending `wait()` promises are rejected.
+Cleans up all listeners, pending waits, and timeouts. All pending `wait()` promises are rejected with the string "EventEmitter destroyed".
 
 ---
 
